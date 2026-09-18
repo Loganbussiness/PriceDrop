@@ -1,0 +1,63 @@
+import Link from "next/link";
+import { auth } from "@/auth";
+import { AnalysisView } from "@/components/AnalysisView";
+import { AnalyzeForm } from "@/components/AnalyzeForm";
+import { analyzeProductUrl } from "@/lib/analyze";
+import { prisma } from "@/lib/prisma";
+
+export const dynamic = "force-dynamic";
+
+type PageProps = {
+  searchParams: Promise<{ url?: string }>;
+};
+
+export default async function AnalysisPage({ searchParams }: PageProps) {
+  const params = await searchParams;
+  const url = params.url?.trim();
+
+  if (!url) {
+    return (
+      <div className="mx-auto max-w-3xl py-16">
+        <h1 className="mb-4 font-[family-name:var(--font-display)] text-3xl font-semibold">
+          Paste a product link to analyze
+        </h1>
+        <AnalyzeForm />
+      </div>
+    );
+  }
+
+  const analysis = await analyzeProductUrl(url);
+  const session = await auth();
+  const existing =
+    session?.user?.id && analysis.id !== "unresolved"
+      ? await prisma.alert.findUnique({
+          where: {
+            userId_productId: {
+              userId: session.user.id,
+              productId: analysis.id,
+            },
+          },
+        })
+      : null;
+
+  return (
+    <div className="mx-auto max-w-3xl py-6">
+      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <Link
+          href="/"
+          className="text-sm text-[var(--muted)] transition hover:text-[var(--ink)]"
+        >
+          ← Analyze another product
+        </Link>
+        <div className="w-full max-w-md">
+          <AnalyzeForm initialUrl={url} compact />
+        </div>
+      </div>
+      <AnalysisView
+        analysis={analysis}
+        signedIn={Boolean(session?.user)}
+        existingThreshold={existing?.threshold}
+      />
+    </div>
+  );
+}
