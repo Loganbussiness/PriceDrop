@@ -3,19 +3,5 @@
   "devCommand": "next dev",
   "installCommand": "npm install",
   "framework": "nextjs",
-  "regions": ["iad1"],
-  "env": {
-    "DATABASE_URL": {
-      "description": "PostgreSQL connection string for production database",
-      "value": "@database-url"
-    },
-    "AUTH_SECRET": {
-      "description": "Secret key for NextAuth.js session encryption",
-      "value": "@auth-secret"
-    },
-    "NODE_ENV": {
-      "description": "Node environment",
-      "value": "production"
-    }
-  }
+  "regions": ["iad1"]
 }
