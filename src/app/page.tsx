@@ -9,15 +9,23 @@ export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
   const session = await auth();
-  const tracked = (await listStoredProducts()).slice(0, 6);
-  const alerts = session?.user?.id
-    ? await prisma.alert.findMany({
+  let tracked = [];
+  let alerts = [];
+  
+  try {
+    tracked = (await listStoredProducts()).slice(0, 6);
+    if (session?.user?.id) {
+      alerts = await prisma.alert.findMany({
         where: { userId: session.user.id },
         include: { product: { include: { snapshots: true } } },
         take: 6,
         orderBy: { createdAt: "desc" },
-      })
-    : [];
+      });
+    }
+  } catch (error) {
+    console.error("Database connection error:", error);
+    // Continue with empty arrays - page will still load
+  }
 
   return (
     <div className="mx-auto flex min-h-[calc(100vh-7rem)] w-full max-w-3xl flex-col justify-center pb-16 pt-6">
