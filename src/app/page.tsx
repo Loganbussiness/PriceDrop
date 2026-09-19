@@ -71,7 +71,7 @@ export default async function HomePage() {
             <ul className="space-y-2">
               {alerts.map((alert) => {
                 const last = alert.product.snapshots.sort(
-                  (a, b) =>
+                  (a: any, b: any) =>
                     new Date(a.date).getTime() - new Date(b.date).getTime(),
                 )[alert.product.snapshots.length - 1];
                 return (
@@ -100,7 +100,7 @@ export default async function HomePage() {
               Recently analyzed
             </p>
             <ul className="space-y-2">
-              {tracked.map((product) => {
+              {tracked.map((product: any) => {
                 const last = product.snapshots[product.snapshots.length - 1];
                 return (
                   <li key={product.id}>
