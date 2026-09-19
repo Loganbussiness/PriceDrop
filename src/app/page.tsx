@@ -9,8 +9,8 @@ export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
   const session = await auth();
-  let tracked = [];
-  let alerts = [];
+  let tracked: any[] = [];
+  let alerts: any[] = [];
   
   try {
     tracked = (await listStoredProducts()).slice(0, 6);
