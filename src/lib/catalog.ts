@@ -277,5 +277,10 @@ export function matchCatalog(url: string): CatalogProduct | undefined {
     return CATALOG.find(p => p.id === 'fake-sale-headphones');
   }
   
+  // Fallback: match any Amazon URL to Sony demo for testing
+  if (urlLower.includes('amazon.de') && urlLower.includes('sony')) {
+    return CATALOG.find(p => p.id === 'sony-wh-1000xm6');
+  }
+  
   return undefined;
 }
