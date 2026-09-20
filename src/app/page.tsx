@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { auth } from "@/auth";
 import { AnalyzeForm } from "@/components/AnalyzeForm";
+import { formatEuro } from "@/lib/analyze";
 import { listStoredProducts } from "@/lib/history-store";
 import { prisma } from "@/lib/prisma";
 
