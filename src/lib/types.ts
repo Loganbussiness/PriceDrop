@@ -56,7 +56,7 @@ export type ProductAnalysis = {
   stores: StoreOffer[];
   alternatives: Alternative[];
   sourceUrl: string;
-  dataSource: "seeded-history" | "live+history" | "tracked" | "unresolved";
+  dataSource: "seeded-history" | "live+history" | "tracked" | "unresolved" | "basic-fallback";
   lastMajorDropDays?: number;
   priceBehavior: string;
 };

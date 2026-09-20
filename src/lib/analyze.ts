@@ -182,76 +182,127 @@ async function analyzeCatalog(
 export async function analyzeProductUrl(rawUrl: string): Promise<ProductAnalysis> {
   const url = rawUrl.trim();
   const catalog = matchCatalog(url);
-  const listing = await fetchListing(url);
-  const livePrice = listing?.price;
-
+  
+  // If it's a catalog match, use catalog data
   if (catalog) {
+    const listing = await fetchListing(url);
+    const livePrice = listing?.price;
     return analyzeCatalog(catalog, url || catalog.stores[1]?.url || url, livePrice);
   }
 
-  const id = productIdFromUrl(url);
-  const stored = await getStoredProduct(id);
+  // For arbitrary URLs, try to fetch listing data
+  let listing;
+  let livePrice;
+  try {
+    listing = await fetchListing(url);
+    livePrice = listing?.price;
+  } catch (error) {
+    console.error("Failed to fetch listing:", error);
+  }
 
+  // If we have live price and listing data, try to use database
   if (livePrice && listing) {
-    const name = listing.title;
-    const brand = listing.brand || new URL(url).hostname.replace(/^www\./, "");
-    const product = await appendSnapshot({
-      id,
-      name,
-      brand,
-      price: livePrice,
-      sourceUrl: url,
-      source: "live-page",
-    });
-    const history = snapshotsToPoints(product);
-    const discount =
-      listing.wasPrice && listing.wasPrice > livePrice
-        ? Math.round(((listing.wasPrice - livePrice) / listing.wasPrice) * 100)
-        : undefined;
+    try {
+      const id = productIdFromUrl(url);
+      const stored = await getStoredProduct(id);
+      const name = listing.title;
+      const brand = listing.brand || new URL(url).hostname.replace(/^www\./, "");
+      const product = await appendSnapshot({
+        id,
+        name,
+        brand,
+        price: livePrice,
+        sourceUrl: url,
+        source: "live-page",
+      });
+      const history = snapshotsToPoints(product);
+      const discount =
+        listing.wasPrice && listing.wasPrice > livePrice
+          ? Math.round(((listing.wasPrice - livePrice) / listing.wasPrice) * 100)
+          : undefined;
 
-    return assemble({
+      return assemble({
+        id,
+        name,
+        brand,
+        imageHint: name,
+        currentPrice: livePrice,
+        advertisedWas: listing.wasPrice,
+        advertisedDiscountPct: discount,
+        history,
+        stores: [{ store: brand, price: livePrice, inStock: true, url }],
+        alternatives: [],
+        whyNot: [
+          history.length < 4
+            ? "We have very little history on this listing, so the recommendation is conservative."
+            : `Lowest recorded so far is €${Math.min(...history.map((h) => h.price))}.`,
+          "Other retailers are not verified for this URL yet.",
+          "Variants, shipping, and tax may not be reflected in the scraped price.",
+        ],
+      sourceUrl: url,
+      dataSource: "live+history",
+    });
+    } catch (dbError) {
+      console.error("Database operation failed, using fallback:", dbError);
+      // Fall through to fallback analysis
+    }
+  }
+
+  // Fallback: Basic analysis without database
+  try {
+    const id = productIdFromUrl(url);
+    const name = listing?.title || new URL(url).hostname.replace(/^www\./, "");
+    const brand = listing?.brand || new URL(url).hostname.replace(/^www\./, "");
+    
+    return {
       id,
       name,
       brand,
       imageHint: name,
-      currentPrice: livePrice,
-      advertisedWas: listing.wasPrice,
-      advertisedDiscountPct: discount,
-      history,
-      stores: [{ store: brand, price: livePrice, inStock: true, url }],
-      alternatives: [],
+      currency: "EUR",
+      currentPrice: livePrice || 0,
+      advertisedWas: listing?.wasPrice,
+      advertisedDiscountPct: listing?.wasPrice && livePrice 
+        ? Math.round(((listing.wasPrice - livePrice) / listing.wasPrice) * 100)
+        : undefined,
+      avg30: 0,
+      avg90: 0,
+      lowest: 0,
+      highest: 0,
+      recommendation: "WAIT",
+      headline: livePrice ? "Current price found" : "Unable to fetch price",
+      explanation: "Basic analysis available. Full price history requires database connectivity.",
+      savingsVsTypical: 0,
+      realSale: {
+        isUnusual: false,
+        label: "Limited data",
+        detail: "No historical data available for this product."
+      },
       whyNot: [
-        history.length < 4
-          ? "We have very little history on this listing, so the recommendation is conservative."
-          : `Lowest recorded so far is €${Math.min(...history.map((h) => h.price))}.`,
-        "Other retailers are not verified for this URL yet.",
-        "Variants, shipping, and tax may not be reflected in the scraped price.",
+        "No historical price data available.",
+        "Database connection required for full analysis.",
+        "Recommendation is conservative due to limited information."
       ],
-      sourceUrl: url,
-      dataSource: "live+history",
-    });
-  }
-
-  if (stored && stored.snapshots.length > 0) {
-    const history = snapshotsToPoints(stored);
-    const current = history[history.length - 1].price;
-    return assemble({
-      id: stored.id,
-      name: stored.name,
-      brand: stored.brand,
-      imageHint: stored.name,
-      currentPrice: current,
-      history,
-      stores: stored.sourceUrl
-        ? [{ store: stored.brand, price: current, inStock: true, url: stored.sourceUrl }]
-        : [],
+      score: {
+        overall: 50,
+        price: 50,
+        history: 50,
+        alternatives: 50,
+        reviews: 50,
+      },
+      history: [],
+      stores: livePrice ? [{ store: brand, price: livePrice, inStock: true, url }] : [],
       alternatives: [],
-      whyNot: ["This page could not be re-fetched; showing stored snapshots only."],
-      sourceUrl: stored.sourceUrl || url,
-      dataSource: "tracked",
-    });
+      sourceUrl: url,
+      dataSource: "basic-fallback",
+      priceBehavior: "No historical data available.",
+    };
+  } catch (fallbackError) {
+    console.error("Fallback analysis failed:", fallbackError);
+    throw new Error("Unable to analyze this product URL");
   }
 
+  // Final fallback
   return {
     id: "unresolved",
     name: "Couldn't read this product",
@@ -270,21 +321,27 @@ export async function analyzeProductUrl(rawUrl: string): Promise<ProductAnalysis
     savingsVsTypical: 0,
     realSale: {
       isUnusual: false,
-      label: "No sale data",
-      detail: "Without a current price, we can't judge whether a discount is real.",
+      label: "No data",
+      detail: "Unable to determine sale status."
     },
     whyNot: [
-      "The URL didn't match a demo product and the page did not expose a machine-readable price.",
-      "Amazon and many retailers block or omit JSON-LD prices for bots.",
-      "Use a demo chip, or a product page with schema.org Product markup.",
+      "No price data found on this page.",
+      "Database connection may be required for full analysis.",
+      "Try a different product URL or use demo links."
     ],
-    score: { overall: 0, price: 0, history: 0, alternatives: 0, reviews: 0 },
+    score: {
+      overall: 0,
+      price: 0,
+      history: 0,
+      alternatives: 0,
+      reviews: 0,
+    },
     history: [],
     stores: [],
     alternatives: [],
     sourceUrl: url,
     dataSource: "unresolved",
-    priceBehavior: "No history yet.",
+    priceBehavior: "No data available.",
   };
 }
 
