@@ -45,13 +45,17 @@ export default async function AnalysisPage({ searchParams }: PageProps) {
     }
   } catch (error) {
     console.error("Analysis error:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
     return (
       <div className="mx-auto max-w-3xl py-16">
         <h1 className="mb-4 font-[family-name:var(--font-display)] text-3xl font-semibold">
           Analysis Failed
         </h1>
         <p className="text-[var(--muted)] mb-4">
-          There was an error analyzing this product. Please try again later.
+          There was an error analyzing this product: {errorMessage}
+        </p>
+        <p className="text-sm text-[var(--muted)] mb-4">
+          URL: {url}
         </p>
         <Link
           href="/"
