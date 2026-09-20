@@ -246,5 +246,23 @@ const DEMO_URL_EXACT: Record<string, CatalogProduct> = Object.fromEntries(
 );
 
 export function matchCatalog(url: string): CatalogProduct | undefined {
-  return DEMO_URL_EXACT[url.trim()];
+  const normalizedUrl = url.trim();
+  // Try exact match first
+  if (DEMO_URL_EXACT[normalizedUrl]) {
+    return DEMO_URL_EXACT[normalizedUrl];
+  }
+  
+  // Try with different encodings
+  const decodedUrl = decodeURIComponent(normalizedUrl);
+  if (DEMO_URL_EXACT[decodedUrl]) {
+    return DEMO_URL_EXACT[decodedUrl];
+  }
+  
+  // Try encoded version
+  const encodedUrl = encodeURIComponent(normalizedUrl);
+  if (DEMO_URL_EXACT[encodedUrl]) {
+    return DEMO_URL_EXACT[encodedUrl];
+  }
+  
+  return undefined;
 }
