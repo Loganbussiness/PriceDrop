@@ -216,17 +216,17 @@ export const CATALOG: CatalogProduct[] = [
 export const DEMO_LINKS = [
   {
     label: "Sony WH-1000XM6 (good price)",
-    url: amazonSearch("Sony WH-1000XM6"),
+    url: "/demo/sony-wh-1000xm6",
     catalogId: "sony-wh-1000xm6",
   },
   {
     label: "AirPods Pro (maybe wait)",
-    url: amazonSearch("Apple AirPods Pro 2 USB-C"),
+    url: "/demo/airpods-pro-2",
     catalogId: "airpods-pro-2",
   },
   {
     label: "Ad headphones (fake sale)",
-    url: "https://shop.example.com/novabeat-pro-anc",
+    url: "/demo/fake-sale-headphones",
     catalogId: "fake-sale-headphones",
   },
 ];
@@ -263,6 +263,12 @@ export function matchCatalog(url: string): CatalogProduct | undefined {
   const encodedUrl = encodeURIComponent(normalizedUrl);
   if (DEMO_URL_EXACT[encodedUrl]) {
     return DEMO_URL_EXACT[encodedUrl];
+  }
+  
+  // Handle internal demo routes
+  if (normalizedUrl.startsWith('/demo/')) {
+    const catalogId = normalizedUrl.replace('/demo/', '');
+    return CATALOG.find(p => p.id === catalogId);
   }
   
   // Try partial matching - match by catalog ID if URL contains key terms
