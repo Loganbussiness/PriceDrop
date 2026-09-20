@@ -248,30 +248,34 @@ const DEMO_URL_EXACT: Record<string, CatalogProduct> = Object.fromEntries(
 export function matchCatalog(url: string): CatalogProduct | undefined {
   const normalizedUrl = url.trim();
   
-  // Debug logging
-  console.log('matchCatalog called with:', normalizedUrl);
-  console.log('Available demo URLs:', Object.keys(DEMO_URL_EXACT));
-  
   // Try exact match first
   if (DEMO_URL_EXACT[normalizedUrl]) {
-    console.log('Exact match found');
     return DEMO_URL_EXACT[normalizedUrl];
   }
   
   // Try with different encodings
   const decodedUrl = decodeURIComponent(normalizedUrl);
   if (DEMO_URL_EXACT[decodedUrl]) {
-    console.log('Decoded match found');
     return DEMO_URL_EXACT[decodedUrl];
   }
   
   // Try encoded version
   const encodedUrl = encodeURIComponent(normalizedUrl);
   if (DEMO_URL_EXACT[encodedUrl]) {
-    console.log('Encoded match found');
     return DEMO_URL_EXACT[encodedUrl];
   }
   
-  console.log('No match found');
+  // Try partial matching - match by catalog ID if URL contains key terms
+  const urlLower = normalizedUrl.toLowerCase();
+  if (urlLower.includes('sony') && urlLower.includes('wh-1000xm6')) {
+    return CATALOG.find(p => p.id === 'sony-wh-1000xm6');
+  }
+  if (urlLower.includes('airpods') && urlLower.includes('pro')) {
+    return CATALOG.find(p => p.id === 'airpods-pro-2');
+  }
+  if (urlLower.includes('fake') || urlLower.includes('sale')) {
+    return CATALOG.find(p => p.id === 'fake-sale-headphones');
+  }
+  
   return undefined;
 }
