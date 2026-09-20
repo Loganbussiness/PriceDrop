@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { auth } from "@/auth";
 import { AnalyzeForm } from "@/components/AnalyzeForm";
-import { DEMO_LINKS, formatEuro } from "@/lib/analyze";
 import { listStoredProducts } from "@/lib/history-store";
 import { prisma } from "@/lib/prisma";
 
@@ -50,16 +49,30 @@ export default async function HomePage() {
             Try a demo link
           </p>
           <ul className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-            {DEMO_LINKS.map((demo) => (
-              <li key={demo.url}>
-                <Link
-                  href={`/analysis?url=${encodeURIComponent(demo.url)}`}
-                  className="inline-flex rounded-full border border-[var(--line)] bg-white/60 px-4 py-2 text-sm text-[var(--ink-soft)] transition hover:border-[var(--accent-deep)] hover:text-[var(--ink)]"
-                >
-                  {demo.label}
-                </Link>
-              </li>
-            ))}
+            <li>
+              <Link
+                href="/demo/sony-wh-1000xm6"
+                className="inline-flex rounded-full border border-[var(--line)] bg-white/60 px-4 py-2 text-sm text-[var(--ink-soft)] transition hover:border-[var(--accent-deep)] hover:text-[var(--ink)]"
+              >
+                Sony WH-1000XM6 (good price)
+              </Link>
+            </li>
+            <li>
+              <Link
+                href="/demo/airpods-pro-2"
+                className="inline-flex rounded-full border border-[var(--line)] bg-white/60 px-4 py-2 text-sm text-[var(--ink-soft)] transition hover:border-[var(--accent-deep)] hover:text-[var(--ink)]"
+              >
+                AirPods Pro (maybe wait)
+              </Link>
+            </li>
+            <li>
+              <Link
+                href="/demo/fake-sale-headphones"
+                className="inline-flex rounded-full border border-[var(--line)] bg-white/60 px-4 py-2 text-sm text-[var(--ink-soft)] transition hover:border-[var(--accent-deep)] hover:text-[var(--ink)]"
+              >
+                Ad headphones (fake sale)
+              </Link>
+            </li>
           </ul>
         </div>
 
