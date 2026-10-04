@@ -271,18 +271,20 @@ export async function analyzeProductUrl(rawUrl: string): Promise<ProductAnalysis
       lowest: 0,
       highest: 0,
       recommendation: "WAIT",
-      headline: livePrice ? "Current price found" : "Unable to fetch price",
-      explanation: "Basic analysis available. Full price history requires database connectivity.",
+      headline: livePrice ? "Current price found" : "Unable to fetch price from this retailer",
+      explanation: livePrice 
+        ? "Price found but historical data requires multiple visits." 
+        : "This retailer doesn't expose prices in a format we can read automatically. Try a different product link or use our demo links.",
       savingsVsTypical: 0,
       realSale: {
         isUnusual: false,
         label: "Limited data",
-        detail: "No historical data available for this product."
+        detail: livePrice ? "First time seeing this price" : "No price data available"
       },
       whyNot: [
         "No historical price data available.",
-        "Database connection required for full analysis.",
-        "Recommendation is conservative due to limited information."
+        "This retailer may block automated price checking.",
+        "Try Amazon or other retailers with better price visibility."
       ],
       score: {
         overall: 50,

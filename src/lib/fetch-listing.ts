@@ -137,7 +137,7 @@ export async function fetchListing(url: string): Promise<LiveListing | null> {
   hostLastFetch.set(parsed.hostname, Date.now());
 
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 12000); // Increased timeout
+  const timer = setTimeout(() => controller.abort(), 15000); // Increased timeout for slow retailers
 
   try {
     console.log("Fetching:", url);
@@ -146,9 +146,10 @@ export async function fetchListing(url: string): Promise<LiveListing | null> {
       redirect: "follow",
       headers: {
         "user-agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-        "accept-language": "en-US,en;q=0.5",
+        "accept-language": "en-US,en;q=0.9,de;q=0.8",
+        "accept-encoding": "gzip, deflate, br",
       },
     });
     console.log("Response status:", res.status, res.statusText);
