@@ -37,7 +37,7 @@ export async function GET() {
       dbStatus,
       dbError,
       needsSchemaCreation: true,
-      instructions: "Run: DATABASE_URL='<your-neon-url>' npx prisma db push"
+      instructions: "Run locally: DATABASE_URL='<your-neon-url>' node scripts/push-production-schema.js"
     });
   } finally {
     await prisma.$disconnect();
