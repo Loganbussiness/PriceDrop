@@ -37,9 +37,43 @@ function meta(html: string, key: string): string | undefined {
 function parsePrice(raw: unknown): number | undefined {
   if (typeof raw === "number" && Number.isFinite(raw)) return raw;
   if (typeof raw !== "string") return undefined;
+  
+  // Handle various price formats: $99.99, €99,99, 99.99, 99,99, $99, 99€
   const cleaned = raw.replace(/[^\d.,]/g, "").replace(",", ".");
   const n = Number.parseFloat(cleaned);
   return Number.isFinite(n) && n > 0 ? n : undefined;
+}
+
+function extractPriceFromHtml(html: string): number | undefined {
+  // Try multiple price patterns in HTML
+  const patterns = [
+    /price["\s]*:\s*["\s]*([\d.,]+)/gi,
+    /<span[^>]*class="[^"]*price[^"]*"[^>]*>([\d.,]+)/gi,
+    /<div[^>]*class="[^"]*price[^"]*"[^>]*>([\d.,]+)/gi,
+    /price[:\s]*([\d.,]+)/gi,
+    /€\s*([\d.,]+)/gi,
+    /\$\s*([\d.,]+)/gi,
+    /GBP\s*([\d.,]+)/gi,
+    /([\d.,]+)\s*€/gi,
+    /([\d.,]+)\s*\$/gi,
+  ];
+  
+  for (const pattern of patterns) {
+    const matches = html.match(pattern);
+    if (matches) {
+      for (const match of matches) {
+        const priceMatch = match.match(/([\d.,]+)/);
+        if (priceMatch) {
+          const price = parsePrice(priceMatch[1]);
+          if (price && price > 0 && price < 100000) { // Reasonable price range
+            return price;
+          }
+        }
+      }
+    }
+  }
+  
+  return undefined;
 }
 
 function walkOffers(node: unknown): { price?: number; was?: number } {
@@ -168,17 +202,27 @@ export async function fetchListing(url: string): Promise<LiveListing | null> {
     const title =
       ld.title ||
       meta(html, "og:title") ||
+      meta(html, "twitter:title") ||
       html.match(/<title>([\s\S]*?)<\/title>/i)?.[1]?.replace(/\s+/g, " ").trim();
     
-    const price =
-      ld.price ??
-      parsePrice(meta(html, "og:price:amount") ?? meta(html, "product:price:amount"));
+    // Try multiple price extraction methods
+    let price = ld.price;
+    if (!price) {
+      price = parsePrice(meta(html, "og:price:amount") ?? meta(html, "product:price:amount"));
+    }
+    if (!price) {
+      price = parsePrice(meta(html, "price"));
+    }
+    if (!price) {
+      price = extractPriceFromHtml(html);
+    }
     
-    const wasPrice = ld.wasPrice ?? parsePrice(meta(html, "og:price:standard_amount"));
-    const currency = meta(html, "og:price:currency") || ld.currency;
+    const wasPrice = ld.wasPrice ?? parsePrice(meta(html, "og:price:standard_amount") ?? meta(html, "price:original"));
+    const currency = meta(html, "og:price:currency") || ld.currency || meta(html, "price:currency");
     
     console.log("Extracted data:", { title, price, wasPrice, currency });
     
+    // Accept products with just a title or just a price
     if (!title && !price) {
       console.log("No title or price found");
       listingCache.set(cacheKey, { at: Date.now(), value: null });
