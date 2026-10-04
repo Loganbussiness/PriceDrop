@@ -36,6 +36,8 @@ export async function GET() {
       nodeEnv: process.env.NODE_ENV,
       dbStatus,
       dbError,
+      needsSchemaCreation: true,
+      instructions: "Run: DATABASE_URL='<your-neon-url>' npx prisma db push"
     });
   } finally {
     await prisma.$disconnect();
