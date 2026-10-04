@@ -115,9 +115,13 @@ export async function fetchListing(url: string): Promise<LiveListing | null> {
   try {
     parsed = new URL(url);
   } catch {
+    console.error("Invalid URL:", url);
     return null;
   }
-  if (!/^https?:$/.test(parsed.protocol)) return null;
+  if (!/^https?:$/.test(parsed.protocol)) {
+    console.error("Invalid protocol:", parsed.protocol);
+    return null;
+  }
 
   const cacheKey = parsed.toString();
   const cached = listingCache.get(cacheKey);
@@ -133,34 +137,53 @@ export async function fetchListing(url: string): Promise<LiveListing | null> {
   hostLastFetch.set(parsed.hostname, Date.now());
 
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 8000);
+  const timer = setTimeout(() => controller.abort(), 12000); // Increased timeout
 
   try {
+    console.log("Fetching:", url);
     const res = await fetch(parsed.toString(), {
       signal: controller.signal,
       redirect: "follow",
       headers: {
         "user-agent":
-          "Mozilla/5.0 (compatible; PriceDropMVP/0.1; +https://localhost:3000)",
-        accept: "text/html,application/xhtml+xml",
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+        accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+        "accept-language": "en-US,en;q=0.5",
       },
     });
-    if (!res.ok) return null;
+    console.log("Response status:", res.status, res.statusText);
+    
+    if (!res.ok) {
+      console.error("HTTP error:", res.status, res.statusText);
+      return null;
+    }
+    
     const html = await res.text();
+    console.log("HTML length:", html.length);
+    
     const ld = fromJsonLd(html);
+    console.log("JSON-LD result:", ld);
+    
     const title =
       ld.title ||
       meta(html, "og:title") ||
       html.match(/<title>([\s\S]*?)<\/title>/i)?.[1]?.replace(/\s+/g, " ").trim();
+    
     const price =
       ld.price ??
       parsePrice(meta(html, "og:price:amount") ?? meta(html, "product:price:amount"));
+    
     const wasPrice = ld.wasPrice ?? parsePrice(meta(html, "og:price:standard_amount"));
     const currency = meta(html, "og:price:currency") || ld.currency;
+    
+    console.log("Extracted data:", { title, price, wasPrice, currency });
+    
     if (!title && !price) {
+      console.log("No title or price found");
       listingCache.set(cacheKey, { at: Date.now(), value: null });
       return null;
     }
+    
     const value: LiveListing = {
       title: title ? decode(title) : "Unknown product",
       brand: ld.brand,
@@ -170,7 +193,8 @@ export async function fetchListing(url: string): Promise<LiveListing | null> {
     };
     listingCache.set(cacheKey, { at: Date.now(), value });
     return value;
-  } catch {
+  } catch (error) {
+    console.error("Fetch error:", error);
     listingCache.set(cacheKey, { at: Date.now(), value: null });
     return null;
   } finally {

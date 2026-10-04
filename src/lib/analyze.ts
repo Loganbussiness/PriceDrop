@@ -196,6 +196,7 @@ export async function analyzeProductUrl(rawUrl: string): Promise<ProductAnalysis
   try {
     listing = await fetchListing(url);
     livePrice = listing?.price;
+    console.log("Listing fetched:", { listing, livePrice });
   } catch (error) {
     console.error("Failed to fetch listing:", error);
   }
