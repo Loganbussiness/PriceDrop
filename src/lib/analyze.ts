@@ -179,6 +179,51 @@ async function analyzeCatalog(
   );
 }
 
+// Historical data accumulation
+async function accumulateHistoricalData(productId: string, price: number, source: string) {
+  try {
+    await appendSnapshot({
+      id: productId,
+      name: "Unknown", // Will be updated by the main analysis
+      brand: "Unknown",
+      price,
+      sourceUrl: "",
+      source,
+    });
+  } catch (error) {
+    console.error("Failed to accumulate historical data:", error);
+  }
+}
+
+// Retailer comparison (placeholder for future implementation)
+async function findCompetitorProducts(productName: string, brand: string) {
+  // This would search the database for similar products from other retailers
+  // For now, return empty array as a placeholder
+  return [];
+}
+
+// Variant detection (placeholder for future implementation)
+function detectVariants(title: string, html: string) {
+  // This would analyze the product page to detect variants (colors, sizes, etc.)
+  // For now, return simple variant info
+  return {
+    hasVariants: false,
+    detectedVariants: [],
+  };
+}
+
+// Shipping and tax estimation (placeholder for future implementation)
+function estimateTotalPrice(basePrice: number, currency: string, retailer: string) {
+  // This would estimate shipping and tax based on retailer and location
+  // For now, return the base price
+  return {
+    basePrice,
+    estimatedShipping: 0,
+    estimatedTax: 0,
+    total: basePrice,
+  };
+}
+
 export async function analyzeProductUrl(rawUrl: string): Promise<ProductAnalysis> {
   const url = rawUrl.trim();
   const catalog = matchCatalog(url);
@@ -243,6 +288,13 @@ export async function analyzeProductUrl(rawUrl: string): Promise<ProductAnalysis
       sourceUrl: url,
       dataSource: "live+history",
     });
+    
+    // Accumulate historical data for future analysis (non-blocking)
+    if (livePrice) {
+      accumulateHistoricalData(id, livePrice, "live-page").catch(err => 
+        console.error("Historical data accumulation failed:", err)
+      );
+    }
     } catch (dbError) {
       console.error("Database operation failed, using fallback:", dbError);
       // Fall through to fallback analysis
