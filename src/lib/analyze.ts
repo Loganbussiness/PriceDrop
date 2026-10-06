@@ -285,15 +285,57 @@ function detectVariants(title: string, html: string) {
   };
 }
 
-// Shipping and tax estimation (placeholder for future implementation)
-function estimateTotalPrice(basePrice: number, currency: string, retailer: string) {
-  // This would estimate shipping and tax based on retailer and location
-  // For now, return the base price
+// Shipping and tax estimation
+function estimateTotalPrice(basePrice: number, currency: string, retailer: string, url: string) {
+  // Basic retailer-specific shipping estimates
+  const retailerShippingRates: Record<string, number> = {
+    'amazon': 0, // Amazon often has free shipping
+    'amazon.de': 0,
+    'amazon.com': 0,
+    'ebay': 5, // eBay often has shipping costs
+    'walmart': 0,
+    'target': 0,
+    'bestbuy': 0,
+  };
+  
+  // Detect retailer from URL or brand
+  const urlLower = url.toLowerCase();
+  const retailerLower = retailer.toLowerCase();
+  
+  let estimatedShipping = 0;
+  
+  // Check for known retailers
+  for (const [knownRetailer, rate] of Object.entries(retailerShippingRates)) {
+    if (urlLower.includes(knownRetailer) || retailerLower.includes(knownRetailer)) {
+      estimatedShipping = rate;
+      break;
+    }
+  }
+  
+  // Default shipping for unknown retailers
+  if (estimatedShipping === 0 && basePrice < 50) {
+    estimatedShipping = 5; // Assume shipping cost for cheaper items
+  }
+  
+  // Tax estimation (simplified - would need geolocation in production)
+  const taxRates: Record<string, number> = {
+    'EUR': 0.19, // EU average VAT
+    'USD': 0.08, // US average sales tax
+    'GBP': 0.20, // UK VAT
+  };
+  
+  const taxRate = taxRates[currency] || 0.1; // Default 10%
+  const estimatedTax = basePrice * taxRate;
+  
+  const total = basePrice + estimatedShipping + estimatedTax;
+  
   return {
     basePrice,
-    estimatedShipping: 0,
-    estimatedTax: 0,
-    total: basePrice,
+    estimatedShipping,
+    estimatedTax,
+    total,
+    taxRate,
+    currency,
   };
 }
 
@@ -383,6 +425,13 @@ export async function analyzeProductUrl(rawUrl: string): Promise<ProductAnalysis
       analysis.whyNot.push(variantMessage);
     }
     
+    // Estimate shipping and tax
+    const shippingTaxInfo = estimateTotalPrice(livePrice, analysis.currency || 'EUR', brand, url);
+    if (shippingTaxInfo.estimatedShipping > 0 || shippingTaxInfo.estimatedTax > 0) {
+      const shippingTaxMessage = `Estimated total including shipping (€${shippingTaxInfo.estimatedShipping.toFixed(2)}) and tax (€${shippingTaxInfo.estimatedTax.toFixed(2)}): €${shippingTaxInfo.total.toFixed(2)}`;
+      analysis.whyNot.push(shippingTaxMessage);
+    }
+    
     // Find competitor products for comparison
     const competitors = await findCompetitorProducts(name, brand, livePrice, url);
     if (competitors.length > 0) {
@@ -431,12 +480,12 @@ export async function analyzeProductUrl(rawUrl: string): Promise<ProductAnalysis
     const name = listing?.title || new URL(url).hostname.replace(/^www\./, "");
     const brand = listing?.brand || new URL(url).hostname.replace(/^www\./, "");
     
-    return {
+    const fallbackAnalysis = {
       id,
       name,
       brand,
       imageHint: name,
-      currency: "EUR",
+      currency: "EUR" as const,
       currentPrice: livePrice || 0,
       advertisedWas: listing?.wasPrice,
       advertisedDiscountPct: listing?.wasPrice && livePrice 
@@ -446,7 +495,7 @@ export async function analyzeProductUrl(rawUrl: string): Promise<ProductAnalysis
       avg90: 0,
       lowest: 0,
       highest: 0,
-      recommendation: "WAIT",
+      recommendation: "WAIT" as const,
       headline: livePrice ? "Current price found" : "Unable to fetch price from this retailer",
       explanation: livePrice 
         ? "Price found but historical data requires multiple visits." 
@@ -473,9 +522,17 @@ export async function analyzeProductUrl(rawUrl: string): Promise<ProductAnalysis
       stores: livePrice ? [{ store: brand, price: livePrice, inStock: true, url }] : [],
       alternatives: [],
       sourceUrl: url,
-      dataSource: "basic-fallback",
+      dataSource: "basic-fallback" as const,
       priceBehavior: "No historical data available.",
     };
+    
+    // Estimate shipping and tax for fallback
+    const shippingTaxInfo = estimateTotalPrice(livePrice || 0, 'EUR', brand, url);
+    if (shippingTaxInfo.estimatedShipping > 0 || shippingTaxInfo.estimatedTax > 0) {
+      fallbackAnalysis.whyNot.push(`Estimated total including shipping (€${shippingTaxInfo.estimatedShipping.toFixed(2)}) and tax (€${shippingTaxInfo.estimatedTax.toFixed(2)}): €${shippingTaxInfo.total.toFixed(2)}`);
+    }
+    
+    return fallbackAnalysis;
   } catch (fallbackError) {
     console.error("Fallback analysis failed:", fallbackError);
     throw new Error("Unable to analyze this product URL");
