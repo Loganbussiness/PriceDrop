@@ -3,6 +3,7 @@ import { fetchListing } from "./fetch-listing";
 import {
   appendSnapshot,
   getStoredProduct,
+  listStoredProducts,
   seedHistory,
   snapshotsToPoints,
 } from "./history-store";
@@ -195,11 +196,53 @@ async function accumulateHistoricalData(productId: string, price: number, source
   }
 }
 
-// Retailer comparison (placeholder for future implementation)
-async function findCompetitorProducts(productName: string, brand: string) {
-  // This would search the database for similar products from other retailers
-  // For now, return empty array as a placeholder
-  return [];
+// Retailer comparison
+async function findCompetitorProducts(productName: string, brand: string, currentPrice: number, currentUrl: string) {
+  try {
+    // Search for similar products in the database
+    const allProducts = await listStoredProducts();
+    
+    // Find products with similar names (fuzzy matching)
+    const similarProducts = allProducts.filter(product => {
+      const productLower = product.name.toLowerCase();
+      const searchTerm = productName.toLowerCase();
+      
+      // Check for brand match and similar product name
+      const brandMatch = product.brand.toLowerCase() === brand.toLowerCase();
+      const nameSimilarity = productLower.includes(searchTerm.split(' ')[0]) || 
+                            searchTerm.includes(productLower.split(' ')[0]);
+      
+      // Exclude the current product
+      const isCurrentProduct = product.sourceUrl === currentUrl;
+      
+      return brandMatch && nameSimilarity && !isCurrentProduct;
+    });
+    
+    // Get the latest price for each similar product
+    const competitors = similarProducts
+      .map(product => {
+        if (product.snapshots.length > 0) {
+          const latestSnapshot = product.snapshots[product.snapshots.length - 1];
+          return {
+            name: product.name,
+            price: latestSnapshot.price,
+            retailer: product.brand,
+            url: product.sourceUrl,
+            delta: latestSnapshot.price - currentPrice
+          };
+        }
+        return null;
+      })
+      .filter((comp): comp is NonNullable<typeof comp> => comp !== null);
+    
+    // Sort by price difference and return top 3
+    return competitors
+      .sort((a, b) => Math.abs(a.delta) - Math.abs(b.delta))
+      .slice(0, 3);
+  } catch (error) {
+    console.error("Failed to find competitor products:", error);
+    return [];
+  }
 }
 
 // Variant detection (placeholder for future implementation)
@@ -267,7 +310,7 @@ export async function analyzeProductUrl(rawUrl: string): Promise<ProductAnalysis
           ? Math.round(((listing.wasPrice - livePrice) / listing.wasPrice) * 100)
           : undefined;
 
-      return assemble({
+      const analysisData = {
         id,
         name,
         brand,
@@ -286,8 +329,40 @@ export async function analyzeProductUrl(rawUrl: string): Promise<ProductAnalysis
           "Variants, shipping, and tax may not be reflected in the scraped price.",
         ],
       sourceUrl: url,
-      dataSource: "live+history",
-    });
+      dataSource: "live+history" as const,
+    };
+    
+    const analysis = assemble(analysisData);
+    
+    // Find competitor products for comparison
+    const competitors = await findCompetitorProducts(name, brand, livePrice, url);
+    if (competitors.length > 0) {
+      // Update the analysis with competitor information
+      const alternatives = competitors.map(comp => ({
+        name: comp.name,
+        price: comp.price,
+        note: `Available at ${comp.retailer}`,
+        delta: comp.delta
+      }));
+      
+      // Update whyNot message
+      const updatedWhyNot = [
+        history.length < 4
+          ? "We have very little history on this listing, so the recommendation is conservative."
+          : `Lowest recorded so far is €${Math.min(...history.map((h) => h.price))}.`,
+        `Found ${competitors.length} similar product(s) from other retailers.`,
+        "Variants, shipping, and tax may not be reflected in the scraped price.",
+      ];
+      
+      // Return updated analysis with competitor info
+      return {
+        ...analysis,
+        alternatives,
+        whyNot: updatedWhyNot
+      };
+    }
+    
+    return analysis;
     
     // Accumulate historical data for future analysis (non-blocking)
     if (livePrice) {
