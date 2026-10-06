@@ -245,13 +245,43 @@ async function findCompetitorProducts(productName: string, brand: string, curren
   }
 }
 
-// Variant detection (placeholder for future implementation)
+// Variant detection
 function detectVariants(title: string, html: string) {
-  // This would analyze the product page to detect variants (colors, sizes, etc.)
-  // For now, return simple variant info
+  const variants: string[] = [];
+  
+  // Common variant patterns in product titles
+  const variantPatterns = [
+    /(?:\(|\[)\s*(\d+(?:\.\d+)?)\s*(?:inch|'|mm|cm)\s*(?:\)|\])/gi, // Sizes
+    /(?:\(|\[)\s*(black|white|red|blue|green|yellow|orange|purple|pink|brown|gray|grey|silver|gold)\s*(?:\)|\])/gi, // Colors
+    /(?:\(|\[)\s*(small|medium|large|xl|xxl|xxxl|s|m|l)\s*(?:\)|\])/gi, // Sizes
+    /(?:\(|\[)\s*(32gb|64gb|128gb|256gb|512gb|1tb|2tb)\s*(?:\)|\])/gi, // Storage
+    /(?:\(|\[)\s*(4gb|8gb|16gb|32gb)\s*(?:\)|\])/gi, // RAM
+  ];
+  
+  // Check title for variants
+  for (const pattern of variantPatterns) {
+    const matches = title.match(pattern);
+    if (matches) {
+      variants.push(...matches.map(m => m.replace(/[()\[\]]/g, '').trim()));
+    }
+  }
+  
+  // Check HTML for variant selectors
+  const htmlVariantPatterns = [
+    /<[^>]*(?:variant|option|color|size)[^>]*>/gi,
+    /<select[^>]*name="[^"]*(?:variant|option|color|size)[^"]*"[^>]*>/gi,
+  ];
+  
+  for (const pattern of htmlVariantPatterns) {
+    if (html.match(pattern)) {
+      variants.push("Multiple variants available on page");
+      break;
+    }
+  }
+  
   return {
-    hasVariants: false,
-    detectedVariants: [],
+    hasVariants: variants.length > 0,
+    detectedVariants: [...new Set(variants)], // Remove duplicates
   };
 }
 
@@ -281,10 +311,21 @@ export async function analyzeProductUrl(rawUrl: string): Promise<ProductAnalysis
   // For arbitrary URLs, try to fetch listing data
   let listing;
   let livePrice;
+  let productHtml = "";
   try {
     listing = await fetchListing(url);
     livePrice = listing?.price;
     console.log("Listing fetched:", { listing, livePrice });
+    
+    // Try to get HTML for variant detection (fetch the page content)
+    try {
+      const response = await fetch(url);
+      if (response.ok) {
+        productHtml = await response.text();
+      }
+    } catch (htmlError) {
+      console.error("Failed to fetch HTML for variant detection:", htmlError);
+    }
   } catch (error) {
     console.error("Failed to fetch listing:", error);
   }
@@ -333,6 +374,14 @@ export async function analyzeProductUrl(rawUrl: string): Promise<ProductAnalysis
     };
     
     const analysis = assemble(analysisData);
+    
+    // Detect variants and update analysis
+    const variantInfo = detectVariants(name, productHtml);
+    if (variantInfo.hasVariants) {
+      const variantMessage = `This product appears to have variants: ${variantInfo.detectedVariants.join(', ')}. Prices may vary by variant.`;
+      // Add variant info to whyNot
+      analysis.whyNot.push(variantMessage);
+    }
     
     // Find competitor products for comparison
     const competitors = await findCompetitorProducts(name, brand, livePrice, url);
