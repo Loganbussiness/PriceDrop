@@ -196,30 +196,145 @@ async function accumulateHistoricalData(productId: string, price: number, source
   }
 }
 
-// Retailer comparison
-async function findCompetitorProducts(productName: string, brand: string, currentPrice: number, currentUrl: string) {
+// Cross-retailer search system
+type RetailerSearchResult = {
+  retailer: string;
+  url: string;
+  averagePrice: number;
+  priceRange: {
+    min: number;
+    max: number;
+  };
+  resultCount: number;
+};
+
+type CompetitorResult = {
+  name: string;
+  price: number;
+  retailer: string;
+  url: string | undefined;
+  delta: number;
+  isFromSearch: boolean;
+  priceRange?: {
+    min: number;
+    max: number;
+  };
+};
+
+async function searchRetailersForProduct(productName: string, brand: string): Promise<RetailerSearchResult[]> {
+  const retailerSearchTemplates = [
+    {
+      name: 'Amazon',
+      searchUrl: (name: string) => `https://www.amazon.com/s?k=${encodeURIComponent(name)}`,
+      priceSelector: '.a-price .a-offscreen',
+      productSelector: '.s-result-item',
+    },
+    {
+      name: 'Amazon DE',
+      searchUrl: (name: string) => `https://www.amazon.de/s?k=${encodeURIComponent(name)}`,
+      priceSelector: '.a-price .a-offscreen',
+      productSelector: '.s-result-item',
+    },
+    {
+      name: 'eBay',
+      searchUrl: (name: string) => `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(name)}`,
+      priceSelector: '.s-item__price',
+      productSelector: '.s-item',
+    },
+    {
+      name: 'Walmart',
+      searchUrl: (name: string) => `https://www.walmart.com/search/?query=${encodeURIComponent(name)}`,
+      priceSelector: '.price-main',
+      productSelector: '.search-result-gridview-item',
+    },
+    {
+      name: 'Best Buy',
+      searchUrl: (name: string) => `https://www.bestbuy.com/site/searchpage.jsp?st=${encodeURIComponent(name)}`,
+      priceSelector: '.price-regular',
+      productSelector: '.sku-item',
+    },
+  ];
+
+  const results = [];
+
+  for (const retailer of retailerSearchTemplates) {
+    try {
+      const searchUrl = retailer.searchUrl(productName);
+      console.log(`Searching ${retailer.name}:`, searchUrl);
+      
+      const response = await fetch(searchUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        },
+      });
+      
+      if (response.ok) {
+        const html = await response.text();
+        
+        // Extract prices from search results
+        const priceMatches = html.match(/€?\$?[\d.,]+/g);
+        if (priceMatches && priceMatches.length > 0) {
+          const prices = priceMatches
+            .map(p => parseFloat(p.replace(/[€$\s,]/g, '').replace(',', '.')))
+            .filter(p => !isNaN(p) && p > 0 && p < 10000);
+          
+          if (prices.length > 0) {
+            const avgPrice = prices.reduce((a, b) => a + b, 0) / prices.length;
+            results.push({
+              retailer: retailer.name,
+              url: searchUrl,
+              averagePrice: avgPrice,
+              priceRange: {
+                min: Math.min(...prices),
+                max: Math.max(...prices),
+              },
+              resultCount: prices.length,
+            } as RetailerSearchResult);
+          }
+        }
+      }
+    } catch (error) {
+      console.error(`Failed to search ${retailer.name}:`, error);
+    }
+  }
+
+  return results;
+}
+
+// Retailer comparison (enhanced with cross-retailer search)
+async function findCompetitorProducts(productName: string, brand: string, currentPrice: number, currentUrl: string): Promise<CompetitorResult[]> {
   try {
-    // Search for similar products in the database
+    // First, search across multiple retailers
+    const retailerResults = await searchRetailersForProduct(productName, brand);
+    
+    // Convert retailer search results to competitor format
+    const retailerCompetitors: CompetitorResult[] = retailerResults.map(result => ({
+      name: `${productName} at ${result.retailer}`,
+      price: result.averagePrice,
+      retailer: result.retailer,
+      url: result.url,
+      delta: result.averagePrice - currentPrice,
+      isFromSearch: true,
+      priceRange: result.priceRange,
+    }));
+
+    // Also search database for existing similar products
     const allProducts = await listStoredProducts();
     
-    // Find products with similar names (fuzzy matching)
     const similarProducts = allProducts.filter(product => {
       const productLower = product.name.toLowerCase();
       const searchTerm = productName.toLowerCase();
       
-      // Check for brand match and similar product name
       const brandMatch = product.brand.toLowerCase() === brand.toLowerCase();
       const nameSimilarity = productLower.includes(searchTerm.split(' ')[0]) || 
                             searchTerm.includes(productLower.split(' ')[0]);
       
-      // Exclude the current product
       const isCurrentProduct = product.sourceUrl === currentUrl;
       
       return brandMatch && nameSimilarity && !isCurrentProduct;
     });
     
-    // Get the latest price for each similar product
-    const competitors = similarProducts
+    const databaseCompetitors: CompetitorResult[] = similarProducts
       .map(product => {
         if (product.snapshots.length > 0) {
           const latestSnapshot = product.snapshots[product.snapshots.length - 1];
@@ -228,17 +343,21 @@ async function findCompetitorProducts(productName: string, brand: string, curren
             price: latestSnapshot.price,
             retailer: product.brand,
             url: product.sourceUrl,
-            delta: latestSnapshot.price - currentPrice
+            delta: latestSnapshot.price - currentPrice,
+            isFromSearch: false,
           };
         }
         return null;
       })
       .filter((comp): comp is NonNullable<typeof comp> => comp !== null);
+
+    // Combine both sources and prioritize retailer search results
+    const allCompetitors = [...retailerCompetitors, ...databaseCompetitors];
     
-    // Sort by price difference and return top 3
-    return competitors
+    // Sort by price difference and return top 5
+    return allCompetitors
       .sort((a, b) => Math.abs(a.delta) - Math.abs(b.delta))
-      .slice(0, 3);
+      .slice(0, 5);
   } catch (error) {
     console.error("Failed to find competitor products:", error);
     return [];
@@ -408,7 +527,7 @@ export async function analyzeProductUrl(rawUrl: string): Promise<ProductAnalysis
           history.length < 4
             ? "We have very little history on this listing, so the recommendation is conservative."
             : `Lowest recorded so far is €${Math.min(...history.map((h) => h.price))}.`,
-          "Other retailers are not verified for this URL yet.",
+          "Checking other retailers for price comparison...",
           "Variants, shipping, and tax may not be reflected in the scraped price.",
         ],
       sourceUrl: url,
@@ -432,33 +551,39 @@ export async function analyzeProductUrl(rawUrl: string): Promise<ProductAnalysis
       analysis.whyNot.push(shippingTaxMessage);
     }
     
-    // Find competitor products for comparison
+    // Find competitor products for comparison (always search retailers)
     const competitors = await findCompetitorProducts(name, brand, livePrice, url);
-    if (competitors.length > 0) {
-      // Update the analysis with competitor information
-      const alternatives = competitors.map(comp => ({
-        name: comp.name,
-        price: comp.price,
-        note: `Available at ${comp.retailer}`,
-        delta: comp.delta
-      }));
-      
-      // Update whyNot message
-      const updatedWhyNot = [
-        history.length < 4
-          ? "We have very little history on this listing, so the recommendation is conservative."
-          : `Lowest recorded so far is €${Math.min(...history.map((h) => h.price))}.`,
-        `Found ${competitors.length} similar product(s) from other retailers.`,
-        "Variants, shipping, and tax may not be reflected in the scraped price.",
-      ];
-      
-      // Return updated analysis with competitor info
-      return {
-        ...analysis,
-        alternatives,
-        whyNot: updatedWhyNot
-      };
-    }
+    
+    // Update the analysis with competitor information
+    const alternatives = competitors.map(comp => ({
+      name: comp.name,
+      price: comp.price,
+      note: comp.isFromSearch && comp.priceRange
+        ? `Found at ${comp.retailer} (price range: €${comp.priceRange.min.toFixed(2)}-€${comp.priceRange.max.toFixed(2)})`
+        : comp.isFromSearch
+        ? `Found at ${comp.retailer}`
+        : `Available at ${comp.retailer}`,
+      delta: comp.delta,
+      priceRange: comp.priceRange || undefined,
+    }));
+    
+    // Update whyNot message to reflect cross-retailer search
+    const updatedWhyNot = [
+      history.length < 4
+        ? "We have very little history on this listing, so the recommendation is conservative."
+        : `Lowest recorded so far is €${Math.min(...history.map((h) => h.price))}.`,
+      competitors.length > 0 
+        ? `Found this product at ${competitors.length} other retailer(s): ${competitors.map(c => c.retailer).join(', ')}.`
+        : "Checking other retailers for price comparison...",
+      "Variants, shipping, and tax may not be reflected in the scraped price.",
+    ];
+    
+    // Return updated analysis with competitor info
+    return {
+      ...analysis,
+      alternatives,
+      whyNot: updatedWhyNot
+    };
     
     return analysis;
     

@@ -12,6 +12,10 @@ export type Alternative = {
   price: number;
   note: string;
   delta: number;
+  priceRange?: {
+    min: number;
+    max: number;
+  };
 };
 
 export type ScoreBreakdown = {
