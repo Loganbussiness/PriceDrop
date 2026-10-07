@@ -196,7 +196,7 @@ async function accumulateHistoricalData(productId: string, price: number, source
   }
 }
 
-// Cross-retailer search system
+// Cross-retailer search system (non-blocking with timeout)
 type RetailerSearchResult = {
   retailer: string;
   url: string;
@@ -226,52 +226,49 @@ async function searchRetailersForProduct(productName: string, brand: string): Pr
     {
       name: 'Amazon',
       searchUrl: (name: string) => `https://www.amazon.com/s?k=${encodeURIComponent(name)}`,
-      priceSelector: '.a-price .a-offscreen',
-      productSelector: '.s-result-item',
     },
     {
       name: 'Amazon DE',
       searchUrl: (name: string) => `https://www.amazon.de/s?k=${encodeURIComponent(name)}`,
-      priceSelector: '.a-price .a-offscreen',
-      productSelector: '.s-result-item',
     },
     {
       name: 'eBay',
       searchUrl: (name: string) => `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(name)}`,
-      priceSelector: '.s-item__price',
-      productSelector: '.s-item',
     },
     {
       name: 'Walmart',
       searchUrl: (name: string) => `https://www.walmart.com/search/?query=${encodeURIComponent(name)}`,
-      priceSelector: '.price-main',
-      productSelector: '.search-result-gridview-item',
     },
     {
       name: 'Best Buy',
       searchUrl: (name: string) => `https://www.bestbuy.com/site/searchpage.jsp?st=${encodeURIComponent(name)}`,
-      priceSelector: '.price-regular',
-      productSelector: '.sku-item',
     },
   ];
 
   const results = [];
+  const timeout = 3000; // 3 second timeout per retailer
 
   for (const retailer of retailerSearchTemplates) {
     try {
       const searchUrl = retailer.searchUrl(productName);
       console.log(`Searching ${retailer.name}:`, searchUrl);
       
-      const response = await fetch(searchUrl, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        },
-      });
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Timeout')), timeout)
+      );
       
-      if (response.ok) {
+      const response = await Promise.race([
+        fetch(searchUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          },
+        }),
+        timeoutPromise,
+      ]);
+      
+      if (response instanceof Response && response.ok) {
         const html = await response.text();
         
-        // Extract prices from search results
         const priceMatches = html.match(/€?\$?[\d.,]+/g);
         if (priceMatches && priceMatches.length > 0) {
           const prices = priceMatches
@@ -551,8 +548,13 @@ export async function analyzeProductUrl(rawUrl: string): Promise<ProductAnalysis
       analysis.whyNot.push(shippingTaxMessage);
     }
     
-    // Find competitor products for comparison (always search retailers)
-    const competitors = await findCompetitorProducts(name, brand, livePrice, url);
+    // Find competitor products for comparison (non-blocking)
+    let competitors: CompetitorResult[] = [];
+    try {
+      competitors = await findCompetitorProducts(name, brand, livePrice, url);
+    } catch (error) {
+      console.error("Retailer search failed, continuing without it:", error);
+    }
     
     // Update the analysis with competitor information
     const alternatives = competitors.map(comp => ({
