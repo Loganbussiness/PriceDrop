@@ -180,22 +180,6 @@ async function analyzeCatalog(
   );
 }
 
-// Historical data accumulation
-async function accumulateHistoricalData(productId: string, price: number, source: string) {
-  try {
-    await appendSnapshot({
-      id: productId,
-      name: "Unknown", // Will be updated by the main analysis
-      brand: "Unknown",
-      price,
-      sourceUrl: "",
-      source,
-    });
-  } catch (error) {
-    console.error("Failed to accumulate historical data:", error);
-  }
-}
-
 // Cross-retailer search system (non-blocking with timeout)
 type RetailerSearchResult = {
   retailer: string;
@@ -584,17 +568,8 @@ export async function analyzeProductUrl(rawUrl: string): Promise<ProductAnalysis
     return {
       ...analysis,
       alternatives,
-      whyNot: updatedWhyNot
+      whyNot: updatedWhyNot,
     };
-    
-    return analysis;
-    
-    // Accumulate historical data for future analysis (non-blocking)
-    if (livePrice) {
-      accumulateHistoricalData(id, livePrice, "live-page").catch(err => 
-        console.error("Historical data accumulation failed:", err)
-      );
-    }
     } catch (dbError) {
       console.error("Database operation failed, using fallback:", dbError);
       // Fall through to fallback analysis

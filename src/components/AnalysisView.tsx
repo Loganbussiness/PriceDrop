@@ -15,6 +15,8 @@ export function AnalysisView({
   signedIn: boolean;
   existingThreshold?: number;
 }) {
+  // sourceUrl is passed to the alert form so the watcher can re-check prices
+  const sourceUrl = analysis.sourceUrl || undefined;
   if (analysis.dataSource === "unresolved") {
     return (
       <div className="mx-auto w-full max-w-3xl space-y-8 pb-20">
@@ -259,6 +261,7 @@ export function AnalysisView({
             productId={analysis.id}
             productName={analysis.name}
             productBrand={analysis.brand}
+            sourceUrl={sourceUrl}
             suggested={analysis.lowest}
             signedIn={signedIn}
             existingThreshold={existingThreshold}

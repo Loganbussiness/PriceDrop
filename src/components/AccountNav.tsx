@@ -26,6 +26,9 @@ export async function AccountNav() {
       <Link href="/wishlist" className="text-[var(--muted)] hover:text-[var(--ink)]">
         Wishlist
       </Link>
+      <Link href="/alerts" className="text-[var(--muted)] hover:text-[var(--ink)]">
+        Alerts
+      </Link>
       <span className="hidden max-w-[10rem] truncate text-[var(--muted)] sm:inline">
         {session.user.email}
       </span>

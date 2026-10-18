@@ -9,6 +9,7 @@ export function PriceAlertForm({
   productId,
   productName,
   productBrand,
+  sourceUrl,
   suggested,
   signedIn,
   existingThreshold,
@@ -16,6 +17,7 @@ export function PriceAlertForm({
   productId: string;
   productName: string;
   productBrand: string;
+  sourceUrl?: string;
   suggested: number;
   signedIn: boolean;
   existingThreshold?: number;
@@ -23,6 +25,7 @@ export function PriceAlertForm({
   const [threshold, setThreshold] = useState(
     String(existingThreshold ?? suggested),
   );
+  const [dropPercent, setDropPercent] = useState("");
   const [saved, setSaved] = useState<number | null>(existingThreshold ?? null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -36,7 +39,9 @@ export function PriceAlertForm({
     form.set("productId", productId);
     form.set("productName", productName);
     form.set("productBrand", productBrand);
+    if (sourceUrl) form.set("sourceUrl", sourceUrl);
     form.set("threshold", threshold);
+    if (dropPercent.trim() !== "") form.set("dropPercent", dropPercent);
     const result = await upsertAlert(form);
     setPending(false);
     if (result.error) {
@@ -81,6 +86,7 @@ export function PriceAlertForm({
             value={threshold}
             onChange={(e) => setThreshold(e.target.value)}
             disabled={!signedIn}
+            aria-label="Target price"
             className="min-h-12 w-full rounded-xl border border-[var(--line)] bg-white pl-8 pr-4 outline-none ring-[var(--accent)] focus:ring-2 disabled:opacity-50"
           />
         </div>
@@ -91,6 +97,21 @@ export function PriceAlertForm({
         >
           {pending ? "Saving…" : "Track price"}
         </button>
+      </div>
+      <div className="mt-3 flex items-center gap-2 text-sm text-[var(--muted)]">
+        <span>or notify me on a</span>
+        <input
+          type="number"
+          min={1}
+          max={100}
+          value={dropPercent}
+          onChange={(e) => setDropPercent(e.target.value)}
+          disabled={!signedIn}
+          aria-label="Drop percent"
+          placeholder="%"
+          className="h-9 w-20 rounded-lg border border-[var(--line)] bg-white px-2 text-sm outline-none ring-[var(--accent)] focus:ring-2 disabled:opacity-50"
+        />
+        <span>% drop</span>
       </div>
       {error ? (
         <p className="mt-3 text-sm text-[var(--avoid)]" role="alert">

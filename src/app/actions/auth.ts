@@ -61,16 +61,28 @@ export async function upsertAlert(formData: FormData): Promise<{ error?: string 
   const productId = String(formData.get("productId") ?? "");
   const productName = String(formData.get("productName") ?? "Product");
   const productBrand = String(formData.get("productBrand") ?? "Unknown");
+  const sourceUrl = String(formData.get("sourceUrl") ?? "") || null;
   const threshold = Number(formData.get("threshold"));
+  const dropPercentRaw = formData.get("dropPercent");
+  const dropPercent =
+    dropPercentRaw != null && dropPercentRaw !== ""
+      ? Number(dropPercentRaw)
+      : null;
   if (!productId || !Number.isFinite(threshold) || threshold <= 0) {
     return { error: "Enter a price above zero." };
+  }
+  if (
+    dropPercent !== null &&
+    (!Number.isFinite(dropPercent) || dropPercent <= 0 || dropPercent > 100)
+  ) {
+    return { error: "Drop percent must be between 1 and 100." };
   }
 
   try {
     await prisma.product.upsert({
       where: { id: productId },
-      create: { id: productId, name: productName, brand: productBrand },
-      update: { name: productName },
+      create: { id: productId, name: productName, brand: productBrand, sourceUrl },
+      update: { name: productName, brand: productBrand, sourceUrl: sourceUrl ?? undefined },
     });
 
     await prisma.alert.upsert({
@@ -81,8 +93,15 @@ export async function upsertAlert(formData: FormData): Promise<{ error?: string 
         userId: session.user.id,
         productId,
         threshold,
+        dropPercent: dropPercent ?? null,
+        cooldownHours: 12,
+        active: true,
       },
-      update: { threshold },
+      update: {
+        threshold,
+        dropPercent: dropPercent ?? null,
+        active: true,
+      },
     });
 
     return {};
