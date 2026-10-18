@@ -31,7 +31,11 @@ export async function registerUser(formData: FormData): Promise<{ error?: string
     return {};
   } catch (error) {
     console.error("Registration error:", error);
-    return { error: "Unable to create account due to database connection. Please try again later." };
+    const err = error as { code?: string; message?: string };
+    if (err.code === "P2002") {
+      return { error: "That email already has an account." };
+    }
+    return { error: "Unable to create account. Please try again later." };
   }
 }
 
@@ -45,7 +49,11 @@ export async function loginUser(formData: FormData): Promise<{ error?: string }>
     return {};
   } catch (error) {
     console.error("Login error:", error);
-    return { error: "Unable to sign in due to database connection. Please try again later." };
+    const err = error as { type?: string; cause?: Error };
+    if (err.type === "CredentialsSignin") {
+      return { error: "Invalid email or password." };
+    }
+    return { error: "Unable to sign in. Please try again later." };
   }
 }
 
