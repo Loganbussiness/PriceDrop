@@ -7,13 +7,13 @@ import { prisma } from "./prisma";
  * Background price watcher.
  *
  * - Finds every ACTIVE alert, grouped by product (oldest-checked first)
- * - Fetches a fresh price for products not checked within MIN_CHECK_INTERVAL
+ * - Fetches a fresh price for products not checked within MIN_CHECK_INTERVAL (24h)
  * - Appends a snapshot when the price actually moved
  * - Triggers alerts when price <= threshold OR when the drop since the last
  *   snapshot meets dropPercent — respecting each alert's cooldown
  */
 
-export const MIN_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000; // don't re-check a product more often than every 6h
+export const MIN_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000; // don't re-check a product more often than every 24h
 export const MAX_PRODUCTS_PER_RUN = 12; // keep Vercel Hobby (10s) execution budget in mind
 export const FETCH_GAP_MS = 400; // per-host gap for cron runs (cron itself is infrequent, so politeness is cheaper here)
 

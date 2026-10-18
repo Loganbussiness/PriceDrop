@@ -116,7 +116,7 @@ export default function AlertsPage() {
           Your price alerts
         </h1>
         <p className="text-[var(--muted)]">
-          We check prices every few hours and email you when a product hits
+          We check prices daily and email you when a product hits
           your target.
         </p>
       </header>
@@ -226,7 +226,7 @@ export default function AlertsPage() {
       </ul>
 
       <p className="text-xs text-[var(--muted)]">
-        Alerts are checked automatically every 6 hours. Each alert has a 12-hour
+        Alerts are checked automatically every 24 hours. Each alert has a 12-hour
         notification cooldown so you never get spammed.
       </p>
     </div>
