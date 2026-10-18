@@ -4,12 +4,13 @@ const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
-// Read DATABASE_URL from environment
-const dbUrl = process.env.DATABASE_URL;
+// Read DATABASE_URL from command line argument or environment
+const dbUrl = process.argv[2] || process.env.DATABASE_URL;
 
 if (!dbUrl) {
-  console.error('DATABASE_URL environment variable is required');
-  console.error('Usage: DATABASE_URL="postgresql://..." node scripts/push-production-schema.js');
+  console.error('DATABASE_URL is required');
+  console.error('Usage: node scripts/push-production-schema.js "postgresql://..."');
+  console.error('Or: DATABASE_URL="postgresql://..." node scripts/push-production-schema.js');
   process.exit(1);
 }
 
