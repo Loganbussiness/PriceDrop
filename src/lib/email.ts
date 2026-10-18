@@ -2,7 +2,7 @@ import { Resend } from "resend";
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
-const FROM = process.env.FROM_EMAIL || "PriceDrop <alerts@pricedrop.app>";
+const FROM = process.env.FROM_EMAIL || "PriceDrop <pricedropalerts.app@gmail.com>";
 
 export type PriceDropEmailInput = {
   productName: string;
@@ -43,7 +43,7 @@ export async function sendPriceDropEmail(
   const priceStr = formatMoney(input.price, input.currency);
   const thresholdStr = formatMoney(input.threshold, input.currency);
   const savings = input.threshold - input.price;
-  const productUrl = input.url || "https://price-drop-mu.vercel.app";
+  const productUrl = input.url || "https://pricedropalerts.app";
 
   const html = `
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 560px; margin: 0 auto; color: #1a1a1a;">
@@ -68,7 +68,7 @@ export async function sendPriceDropEmail(
 
       <p style="font-size: 12px; color: #9ca3af; margin-top: 24px;">
         You're receiving this because you set a price alert on PriceDrop.
-        Manage alerts in your account: <a href="https://price-drop-mu.vercel.app/alerts" style="color: #6b7280;">price-drop-mu.vercel.app/alerts</a>
+        Manage alerts in your account: <a href="https://pricedropalerts.app/alerts" style="color: #6b7280;">pricedropalerts.app/alerts</a>
       </p>
     </div>
   `;
@@ -80,7 +80,7 @@ Your alert: ${thresholdStr}${savings > 0 ? ` (saves ${formatMoney(savings, input
 
 View: ${productUrl}
 
-— PriceDrop. Manage alerts at https://price-drop-mu.vercel.app/alerts`;
+— PriceDrop. Manage alerts at https://pricedropalerts.app/alerts`;
 
   try {
     await resend.emails.send({ from: FROM, to, subject, html, text });
@@ -115,7 +115,7 @@ export async function sendWelcomeEmail(
         <li>Check the price history chart before you buy</li>
         <li>Compare stores to find the lowest verified price</li>
       </ul>
-      <a href="https://price-drop-mu.vercel.app" style="display: inline-block; background: #1a1a1a; color: #fff; text-decoration: none; padding: 13px 26px; border-radius: 12px; font-weight: 600;">Start analyzing</a>
+      <a href="https://pricedropalerts.app" style="display: inline-block; background: #1a1a1a; color: #fff; text-decoration: none; padding: 13px 26px; border-radius: 12px; font-weight: 600;">Start analyzing</a>
     </div>
   `;
 
