@@ -45,6 +45,15 @@ export default async function HomePage() {
 
         <AnalyzeForm />
 
+        <div className="flex flex-wrap gap-4 pt-2">
+          <Link
+            href="/discover"
+            className="rounded-full border border-[var(--line)] bg-white/70 px-5 py-2.5 font-medium text-[var(--ink)] transition hover:border-[var(--accent)] hover:bg-[var(--accent)] hover:text-white"
+          >
+            🤖 Discover with AI
+          </Link>
+        </div>
+
         <div className="space-y-3 pt-2">
           <p className="text-xs font-medium uppercase tracking-[0.16em] text-[var(--muted)]">
             Try a demo link

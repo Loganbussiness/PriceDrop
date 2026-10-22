@@ -23,6 +23,9 @@ export async function AccountNav() {
 
   return (
     <div className="flex items-center gap-3 text-sm">
+      <Link href="/discover" className="text-[var(--muted)] hover:text-[var(--ink)]">
+        Discover
+      </Link>
       <Link href="/wishlist" className="text-[var(--muted)] hover:text-[var(--ink)]">
         Wishlist
       </Link>
