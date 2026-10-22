@@ -20,6 +20,7 @@ type DiscoveredProduct = {
 type DiscoveryResponse = {
   products: DiscoveredProduct[];
   error?: string;
+  isFallback?: boolean;
 };
 
 export default function DiscoverPage() {
@@ -28,6 +29,7 @@ export default function DiscoverPage() {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<DiscoveredProduct[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isFallback, setIsFallback] = useState(false);
 
   async function discover(e: FormEvent) {
     e.preventDefault();
@@ -47,6 +49,7 @@ export default function DiscoverPage() {
         setError(data.error);
       } else {
         setResults(data.products);
+        setIsFallback(data.isFallback || false);
       }
     } catch (err) {
       setError("Failed to discover products. Please try again.");
@@ -127,6 +130,15 @@ export default function DiscoverPage() {
 
       {results && results.length > 0 && (
         <div className="space-y-4">
+          {isFallback && (
+            <div className="rounded-2xl border border-[var(--line)] bg-yellow-50 px-5 py-4 text-sm text-yellow-800">
+              <p className="font-medium">Using basic discovery mode</p>
+              <p className="mt-1">
+                Add OPENAI_API_KEY to environment variables for AI-powered product discovery.
+                Current results are generated from keyword matching.
+              </p>
+            </div>
+          )}
           <div className="flex items-center justify-between">
             <p className="text-sm text-[var(--muted)]">
               Found {results.length} products
